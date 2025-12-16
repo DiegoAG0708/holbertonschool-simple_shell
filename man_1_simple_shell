@@ -1,0 +1,55 @@
+.TH hsh 1 "December 2025" "Holberton School" "User Commands"
+.SH NAME
+hsh \- simple UNIX command interpreter
+.SH SYNOPSIS
+.B hsh
+[file]
+.SH DESCRIPTION
+The
+.B hsh
+program is a simple UNIX command interpreter developed as part of the Holberton School curriculum.
+It reads commands from standard input in interactive mode or from a file in non-interactive mode,
+and executes them in the same way as
+.B /bin/sh .
+.SH BUILTINS
+The following built-in commands are supported:
+.TP
+.B exit
+Exit the shell. An optional status argument may be provided.
+.TP
+.B env
+Print the current environment variables.
+.SH USAGE
+Interactive mode:
+.PP
+.RS
+$ ./hsh
+($) /bin/ls
+($) exit
+.RE
+.PP
+Non-interactive mode:
+.PP
+.RS
+$ echo "/bin/ls" | ./hsh
+.RE
+.SH EXIT STATUS
+The shell returns 0 on success.
+If a command is not found, it returns 127.
+If a command exists but cannot be executed, it returns 126.
+.SH DIAGNOSTICS
+Error messages follow the format:
+.PP
+.RS
+<program_name>: <command_number>: <command>: not found
+.RE
+.SH ENVIRONMENT
+The shell uses the
+.B PATH
+environment variable to locate executables.
+It inherits the environment from its parent process.
+.SH SEE ALSO
+.BR sh (1),
+.BR execve (2)
+.SH AUTHORS
+Diego Arcila Gasque <12416@holbertonstudents.com>
