@@ -27,7 +27,33 @@ return str;
 }
 
 /**
- * main - Simple shell 0.1
+ * tokenize - Splits a line into tokens
+ * @line: Input string
+ *
+ * Return: Array of tokens (NULL-terminated)
+ */
+char **tokenize(char *line)
+{
+char **tokens = NULL;
+char *token;
+int i = 0;
+
+tokens = malloc(sizeof(char *) * 64);
+if (!tokens)
+return NULL;
+
+token = strtok(line, " ");
+while (token != NULL)
+{
+tokens[i++] = token;
+token = strtok(NULL, " ");
+}
+tokens[i] = NULL;
+return tokens;
+}
+
+/**
+ * main - Simple shell 0.1 with argument support
  * @argc: Argument count
  * @argv: Argument vector
  *
@@ -39,9 +65,9 @@ char *line = NULL;
 size_t n = 0;
 ssize_t read;
 char *cmd;
+char **args;
 pid_t pid;
 int status;
-char *args[2];
 
 (void)argc;
 
@@ -68,6 +94,13 @@ cmd = strtok(NULL, "\n");
 continue;
 }
 
+args = tokenize(cmd);
+if (!args)
+{
+cmd = strtok(NULL, "\n");
+continue;
+}
+
 pid = fork();
 if (pid == -1)
 {
@@ -77,9 +110,6 @@ continue;
 }
 if (pid == 0)
 {
-args[0] = cmd;
-args[1] = NULL;
-
 if (execve(args[0], args, environ) == -1)
 {
 perror(argv[0]);
