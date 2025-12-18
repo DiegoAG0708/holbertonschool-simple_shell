@@ -53,7 +53,7 @@ return tokens;
 }
 
 /**
- * main - Simple shell 0.1 with argument support and no memory leaks
+ * main - Simple shell 0.2 with argument support
  * @argc: Argument count
  * @argv: Argument vector
  *
