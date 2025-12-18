@@ -14,6 +14,6 @@ extern char **environ;
 
 char *trim_spaces(char *str);
 char **tokenize(char *line);
-char *find_in_path(char *cmd);
+char *find_in_path(const char *cmd);
 
 #endif /* SHELL_H */

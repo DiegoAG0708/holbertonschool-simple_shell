@@ -58,9 +58,10 @@ return tokens;
  *
  * Return: Full path if found, else NULL
  */
-char *find_in_path(char *cmd)
+char *find_in_path(const char *cmd)
 {
-char *path, *dir, *full;
+char *path_env, *path_copy, *dir;
+char full[1024];
 struct stat st;
 
 if (strchr(cmd, '/'))
@@ -70,35 +71,31 @@ return strdup(cmd);
 return NULL;
 }
 
-path = getenv("PATH");
-if (!path)
+path_env = getenv("PATH");
+if (!path_env)
 return NULL;
 
-path = strdup(path);
-dir = strtok(path, ":");
+path_copy = strdup(path_env);
+if (!path_copy)
+return NULL;
+
+dir = strtok(path_copy, ":");
 while (dir != NULL)
 {
-full = malloc(strlen(dir) + strlen(cmd) + 2);
-if (!full)
-{
-free(path);
-return NULL;
-}
-sprintf(full, "%s/%s", dir, cmd);
+snprintf(full, sizeof(full), "%s/%s", dir, cmd);
 if (stat(full, &st) == 0 && access(full, X_OK) == 0)
 {
-free(path);
-return full;
+free(path_copy);
+return strdup(full);
 }
-free(full);
 dir = strtok(NULL, ":");
 }
-free(path);
+free(path_copy);
 return NULL;
 }
 
 /**
- * main - Simple shell 0.3 with PATH support
+ * main - Simple shell 0.3 with PATH support and no memory errors
  * @argc: Argument count
  * @argv: Argument vector
  *
