@@ -30,10 +30,16 @@ free(line);
 return (0);
 }
 
+/* Trim trailing newline */
 if (line[read - 1] == '\n')
 line[read - 1] = '\0';
 
-if (line[0] == '\0')
+/* Trim leading spaces */
+while (*line == ' ')
+line++;
+
+/* Ignore empty or space-only input */
+if (*line == '\0')
 continue;
 
 pid = fork();
