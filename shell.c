@@ -53,7 +53,7 @@ return tokens;
 }
 
 /**
- * main - Simple shell 0.1 with argument support
+ * main - Simple shell 0.1 with argument support and no memory leaks
  * @argc: Argument count
  * @argv: Argument vector
  *
@@ -105,6 +105,7 @@ pid = fork();
 if (pid == -1)
 {
 perror(argv[0]);
+free(args);
 cmd = strtok(NULL, "\n");
 continue;
 }
@@ -119,6 +120,7 @@ exit(EXIT_FAILURE);
 else
 {
 waitpid(pid, &status, 0);
+free(args);
 cmd = strtok(NULL, "\n");
 }
 }
