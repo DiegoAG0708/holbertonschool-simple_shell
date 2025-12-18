@@ -53,7 +53,52 @@ return tokens;
 }
 
 /**
- * main - Simple shell 0.2 with argument support
+ * find_in_path - Search for a command in PATH
+ * @cmd: Command name
+ *
+ * Return: Full path if found, else NULL
+ */
+char *find_in_path(char *cmd)
+{
+char *path, *dir, *full;
+struct stat st;
+
+if (strchr(cmd, '/'))
+{
+if (stat(cmd, &st) == 0 && access(cmd, X_OK) == 0)
+return strdup(cmd);
+return NULL;
+}
+
+path = getenv("PATH");
+if (!path)
+return NULL;
+
+path = strdup(path);
+dir = strtok(path, ":");
+while (dir != NULL)
+{
+full = malloc(strlen(dir) + strlen(cmd) + 2);
+if (!full)
+{
+free(path);
+return NULL;
+}
+sprintf(full, "%s/%s", dir, cmd);
+if (stat(full, &st) == 0 && access(full, X_OK) == 0)
+{
+free(path);
+return full;
+}
+free(full);
+dir = strtok(NULL, ":");
+}
+free(path);
+return NULL;
+}
+
+/**
+ * main - Simple shell 0.3 with PATH support
  * @argc: Argument count
  * @argv: Argument vector
  *
@@ -66,6 +111,7 @@ size_t n = 0;
 ssize_t read;
 char *cmd;
 char **args;
+char *path;
 pid_t pid;
 int status;
 
@@ -101,17 +147,27 @@ cmd = strtok(NULL, "\n");
 continue;
 }
 
-pid = fork();
-if (pid == -1)
+path = find_in_path(args[0]);
+if (!path)
 {
 perror(argv[0]);
 free(args);
 cmd = strtok(NULL, "\n");
 continue;
 }
+
+pid = fork();
+if (pid == -1)
+{
+perror(argv[0]);
+free(args);
+free(path);
+cmd = strtok(NULL, "\n");
+continue;
+}
 if (pid == 0)
 {
-if (execve(args[0], args, environ) == -1)
+if (execve(path, args, environ) == -1)
 {
 perror(argv[0]);
 }
@@ -121,6 +177,7 @@ else
 {
 waitpid(pid, &status, 0);
 free(args);
+free(path);
 cmd = strtok(NULL, "\n");
 }
 }
