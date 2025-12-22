@@ -9,7 +9,7 @@ while (*str == ' ' || *str == '\t')
 str++;
 
 if (*str == '\0')
-return str;
+return (str);
 
 end = str + strlen(str) - 1;
 while (end > str && (*end == ' ' || *end == '\t'))
@@ -17,7 +17,7 @@ while (end > str && (*end == ' ' || *end == '\t'))
 *end = '\0';
 end--;
 }
-return str;
+return (str);
 }
 
 /* In-place tokenizer splitting on space or tab; returns malloc'd argv array */
@@ -29,17 +29,15 @@ char *p = line, *start;
 
 argv = malloc(sizeof(char *) * cap);
 if (!argv)
-return NULL;
+return (NULL);
 
 while (*p)
 {
-/* skip spaces/tabs */
 while (*p == ' ' || *p == '\t')
 p++;
 if (*p == '\0')
 break;
 
-/* start of token */
 start = p;
 while (*p && *p != ' ' && *p != '\t')
 p++;
@@ -49,13 +47,12 @@ if (*p)
 p++;
 }
 
-/* add token */
 argv[argc++] = start;
 if (argc + 1 >= cap)
 break;
 }
 argv[argc] = NULL;
-return argv;
+return (argv);
 }
 
 /* Get environment variable value without using getenv, via environ */
@@ -65,16 +62,15 @@ size_t nlen;
 int i;
 
 if (!name)
-return NULL;
+return (NULL);
 nlen = strlen(name);
 
 for (i = 0; environ && environ[i]; i++)
 {
-/* match NAME=... */
 if (!strncmp(environ[i], name, nlen) && environ[i][nlen] == '=')
-return environ[i] + nlen + 1;
+return (environ[i] + nlen + 1);
 }
-return NULL;
+return (NULL);
 }
 
 /* Build "dir/cmd" path safely (malloc), return NULL if fail */
@@ -87,12 +83,12 @@ ld = strlen(dir);
 lc = strlen(cmd);
 out = malloc(ld + 1 + lc + 1);
 if (!out)
-return NULL;
+return (NULL);
 memcpy(out, dir, ld);
 out[ld] = '/';
 memcpy(out + ld + 1, cmd, lc);
 out[ld + 1 + lc] = '\0';
-return out;
+return (out);
 }
 
 /* Resolve command: absolute/relative path or search PATH; returns malloc'd path or NULL */
@@ -103,9 +99,8 @@ char *copy, *p, *start, *candidate;
 struct stat st;
 
 if (!cmd || *cmd == '\0')
-return NULL;
+return (NULL);
 
-/* If cmd contains '/', try directly */
 if (strchr(cmd, '/'))
 {
 if (stat(cmd, &st) == 0 && access(cmd, X_OK) == 0)
@@ -113,53 +108,45 @@ if (stat(cmd, &st) == 0 && access(cmd, X_OK) == 0)
 char *ret = malloc(strlen(cmd) + 1);
 if (ret)
 strcpy(ret, cmd);
-return ret;
+return (ret);
 }
-return NULL;
+return (NULL);
 }
 
-/* PATH search */
 path_env = get_env_value("PATH");
 if (!path_env || *path_env == '\0')
-return NULL;
+return (NULL);
 
-/* Work on a copy to scan directories separated by ':' */
 copy = malloc(strlen(path_env) + 1);
 if (!copy)
-return NULL;
+return (NULL);
 strcpy(copy, path_env);
 
 p = copy;
 while (*p)
 {
-/* dir start */
 start = p;
-/* find ':' or end */
 while (*p && *p != ':')
 p++;
-/* terminate dir segment */
 if (*p == ':')
 *p++ = '\0';
 
-/* skip empty segments */
 if (*start == '\0')
-continue;
+start = ".";
 
-/* build candidate and test */
 candidate = join_path(start, cmd);
 if (candidate)
 {
 if (stat(candidate, &st) == 0 && access(candidate, X_OK) == 0)
 {
 free(copy);
-return candidate;
+return (candidate);
 }
 free(candidate);
 }
 }
-/* done scanning */
 free(copy);
-return NULL;
+return (NULL);
 }
 
 /* Main: PATH support, no fork if missing, quiet stderr, newline splitting */
@@ -185,10 +172,9 @@ read = getline(&line, &n, stdin);
 if (read == -1)
 {
 free(line);
-return 0;
+return (0);
 }
 
-/* process each newline-separated command */
 cmd = strtok(line, "\n");
 while (cmd)
 {
@@ -202,7 +188,8 @@ continue;
 args = tokenize_line(cmd);
 if (!args || !args[0] || args[0][0] == '\0')
 {
-if (args) free(args);
+if (args)
+free(args);
 cmd = strtok(NULL, "\n");
 continue;
 }
@@ -210,13 +197,11 @@ continue;
 path = resolve_command(args[0]);
 if (!path)
 {
-/* do not fork, do not write to stderr */
 free(args);
 cmd = strtok(NULL, "\n");
 continue;
 }
 
-/* execute */
 pid = fork();
 if (pid == -1)
 {
@@ -228,7 +213,6 @@ continue;
 if (pid == 0)
 {
 execve(path, args, environ);
-/* keep quiet on error for checker expectations */
 _exit(EXIT_FAILURE);
 }
 waitpid(pid, &status, 0);
@@ -239,5 +223,5 @@ cmd = strtok(NULL, "\n");
 }
 }
 free(line);
-return 0;
+return (0);
 }
