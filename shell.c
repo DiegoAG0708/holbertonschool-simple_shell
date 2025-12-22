@@ -1,6 +1,11 @@
 #include "shell.h"
 
-/* Trim leading/trailing spaces and tabs */
+/**
+ * trim_spaces - Removes leading and trailing spaces and tabs
+ * @str: Input string
+ *
+ * Return: Trimmed string
+ */
 char *trim_spaces(char *str)
 {
 char *end;
@@ -20,7 +25,12 @@ end--;
 return (str);
 }
 
-/* In-place tokenizer splitting on space or tab; returns malloc'd argv array */
+/**
+ * tokenize_line - Splits a line into tokens separated by space or tab
+ * @line: Input string (modified in place)
+ *
+ * Return: Array of tokens (NULL-terminated), malloc'd; caller frees
+ */
 char **tokenize_line(char *line)
 {
 char **argv;
@@ -55,7 +65,12 @@ argv[argc] = NULL;
 return (argv);
 }
 
-/* Get environment variable value without using getenv, via environ */
+/**
+ * get_env_value - Get environment variable value without using getenv
+ * @name: Variable name
+ *
+ * Return: Pointer to value string or NULL
+ */
 char *get_env_value(const char *name)
 {
 size_t nlen;
@@ -73,7 +88,13 @@ return (environ[i] + nlen + 1);
 return (NULL);
 }
 
-/* Build "dir/cmd" path safely (malloc), return NULL if fail */
+/**
+ * join_path - Build "dir/cmd" path safely
+ * @dir: Directory string
+ * @cmd: Command string
+ *
+ * Return: Newly allocated path string or NULL
+ */
 static char *join_path(const char *dir, const char *cmd)
 {
 size_t ld, lc;
@@ -91,7 +112,12 @@ out[ld + 1 + lc] = '\0';
 return (out);
 }
 
-/* Resolve command: absolute/relative path or search PATH; returns malloc'd path or NULL */
+/**
+ * resolve_command - Resolve command via PATH or direct path
+ * @cmd: Command name
+ *
+ * Return: Newly allocated full path or NULL
+ */
 char *resolve_command(const char *cmd)
 {
 const char *path_env;
@@ -149,7 +175,13 @@ free(copy);
 return (NULL);
 }
 
-/* Main: PATH support, no fork if missing, quiet stderr, newline splitting */
+/**
+ * main - Simple shell 0.3 with PATH support
+ * @argc: Argument count
+ * @argv: Argument vector
+ *
+ * Return: Exit status
+ */
 int main(int argc, char **argv)
 {
 char *line = NULL, *cmd;
