@@ -13,7 +13,8 @@
 extern char **environ;
 
 char *trim_spaces(char *str);
-char **tokenize(char *line);
-char *find_in_path(const char *cmd);
+char **tokenize_line(char *line);
+char *get_env_value(const char *name);
+char *resolve_command(const char *cmd);
 
 #endif /* SHELL_H */

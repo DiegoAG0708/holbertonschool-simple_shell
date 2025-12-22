@@ -1,11 +1,6 @@
 #include "shell.h"
 
-/**
- * trim_spaces - Removes leading and trailing spaces from a string
- * @str: Input string
- *
- * Return: Trimmed string (pointer inside original buffer)
- */
+/* Trim leading/trailing spaces and tabs */
 char *trim_spaces(char *str)
 {
 char *end;
@@ -25,108 +20,163 @@ end--;
 return str;
 }
 
-/**
- * tokenize - Splits a line into tokens
- * @line: Input string (modified in place)
- *
- * Return: Array of tokens (NULL-terminated), malloc'd; caller frees
- */
-char **tokenize(char *line)
+/* In-place tokenizer splitting on space or tab; returns malloc'd argv array */
+char **tokenize_line(char *line)
 {
-char **tokens = NULL;
-char *token;
-int i = 0;
+char **argv;
+int cap = 64, argc = 0;
+char *p = line, *start;
 
-tokens = malloc(sizeof(char *) * 64);
-if (!tokens)
+argv = malloc(sizeof(char *) * cap);
+if (!argv)
 return NULL;
 
-token = strtok(line, " \t");
-while (token != NULL)
+while (*p)
 {
-tokens[i++] = token;
-token = strtok(NULL, " \t");
-}
-tokens[i] = NULL;
-return tokens;
+/* skip spaces/tabs */
+while (*p == ' ' || *p == '\t')
+p++;
+if (*p == '\0')
+break;
+
+/* start of token */
+start = p;
+while (*p && *p != ' ' && *p != '\t')
+p++;
+if (*p)
+{
+*p = '\0';
+p++;
 }
 
-/**
- * find_in_path - Find an executable by searching PATH
- * @cmd: Command name (may contain '/')
- *
- * Return: Newly allocated full path if found, otherwise NULL
- */
-char *find_in_path(const char *cmd)
+/* add token */
+argv[argc++] = start;
+if (argc + 1 >= cap)
+break;
+}
+argv[argc] = NULL;
+return argv;
+}
+
+/* Get environment variable value without using getenv, via environ */
+char *get_env_value(const char *name)
 {
-char *path_env, *path_copy, *saveptr, *dir;
-char full[1024];
+size_t nlen;
+int i;
+
+if (!name)
+return NULL;
+nlen = strlen(name);
+
+for (i = 0; environ && environ[i]; i++)
+{
+/* match NAME=... */
+if (!strncmp(environ[i], name, nlen) && environ[i][nlen] == '=')
+return environ[i] + nlen + 1;
+}
+return NULL;
+}
+
+/* Build "dir/cmd" path safely (malloc), return NULL if fail */
+static char *join_path(const char *dir, const char *cmd)
+{
+size_t ld, lc;
+char *out;
+
+ld = strlen(dir);
+lc = strlen(cmd);
+out = malloc(ld + 1 + lc + 1);
+if (!out)
+return NULL;
+memcpy(out, dir, ld);
+out[ld] = '/';
+memcpy(out + ld + 1, cmd, lc);
+out[ld + 1 + lc] = '\0';
+return out;
+}
+
+/* Resolve command: absolute/relative path or search PATH; returns malloc'd path or NULL */
+char *resolve_command(const char *cmd)
+{
+const char *path_env;
+char *copy, *p, *start, *candidate;
 struct stat st;
 
 if (!cmd || *cmd == '\0')
 return NULL;
 
-/* If command contains '/', check it directly */
+/* If cmd contains '/', try directly */
 if (strchr(cmd, '/'))
 {
 if (stat(cmd, &st) == 0 && access(cmd, X_OK) == 0)
-return strdup(cmd);
+{
+char *ret = malloc(strlen(cmd) + 1);
+if (ret)
+strcpy(ret, cmd);
+return ret;
+}
 return NULL;
 }
 
-/* Get PATH; treat empty PATH as missing */
-path_env = getenv("PATH");
+/* PATH search */
+path_env = get_env_value("PATH");
 if (!path_env || *path_env == '\0')
 return NULL;
 
-/* Work on a copy and use strtok_r safely */
-path_copy = strdup(path_env);
-if (!path_copy)
+/* Work on a copy to scan directories separated by ':' */
+copy = malloc(strlen(path_env) + 1);
+if (!copy)
 return NULL;
+strcpy(copy, path_env);
 
-dir = strtok_r(path_copy, ":", &saveptr);
-while (dir != NULL)
+p = copy;
+while (*p)
 {
-if (snprintf(full, sizeof(full), "%s/%s", dir, cmd) >= (int)sizeof(full))
-{
-dir = strtok_r(NULL, ":", &saveptr);
+/* dir start */
+start = p;
+/* find ':' or end */
+while (*p && *p != ':')
+p++;
+/* terminate dir segment */
+if (*p == ':')
+*p++ = '\0';
+
+/* skip empty segments */
+if (*start == '\0')
 continue;
-}
 
-if (stat(full, &st) == 0 && access(full, X_OK) == 0)
+/* build candidate and test */
+candidate = join_path(start, cmd);
+if (candidate)
 {
-char *ret = strdup(full);
-free(path_copy);
-return ret;
+if (stat(candidate, &st) == 0 && access(candidate, X_OK) == 0)
+{
+free(copy);
+return candidate;
 }
-dir = strtok_r(NULL, ":", &saveptr);
+free(candidate);
 }
-free(path_copy);
+}
+/* also check final segment if last char wasn't ':' (handled in loop) */
+free(copy);
 return NULL;
 }
 
-/**
- * main - Simple shell 0.3 (PATH), no fork on missing command, quiet stderr
- * @argc: Argument count
- * @argv: Argument vector
- *
- * Return: Exit status
- */
+/* Main: PATH support, no fork if missing, quiet stderr, newline splitting */
 int main(int argc, char **argv)
 {
-char *line = NULL;
+char *line = NULL, *cmd;
 size_t n = 0;
 ssize_t read;
-char *cmd;
 char **args;
-char *resolved;
+char *path;
 pid_t pid;
 int status;
 
 (void)argc;
 (void)argv;
 
-while (1)
+for (;;)
 {
 if (isatty(STDIN_FILENO))
 write(STDOUT_FILENO, "#cisfun$ ", 9);
@@ -135,24 +185,21 @@ read = getline(&line, &n, stdin);
 if (read == -1)
 {
 free(line);
-return (0);
+return 0;
 }
 
-/* Split by newline; process each command independently */
+/* process each newline-separated command */
 cmd = strtok(line, "\n");
-while (cmd != NULL)
+while (cmd)
 {
 cmd = trim_spaces(cmd);
-
-/* Skip empty or space-only lines silently */
 if (*cmd == '\0')
 {
 cmd = strtok(NULL, "\n");
 continue;
 }
 
-/* Tokenize the command line (in-place) */
-args = tokenize(cmd);
+args = tokenize_line(cmd);
 if (!args || !args[0] || args[0][0] == '\0')
 {
 if (args) free(args);
@@ -160,43 +207,37 @@ cmd = strtok(NULL, "\n");
 continue;
 }
 
-/* Resolve via PATH or absolute/relative; do not fork if missing */
-resolved = find_in_path(args[0]);
-if (!resolved)
+path = resolve_command(args[0]);
+if (!path)
 {
-/* Quiet: do not write to stderr; just skip */
+/* do not fork, do not write to stderr */
 free(args);
 cmd = strtok(NULL, "\n");
 continue;
 }
 
-/* Execute the resolved path with args */
+/* execute */
 pid = fork();
 if (pid == -1)
 {
-/* Quiet failure: free and move on */
 free(args);
-free(resolved);
+free(path);
 cmd = strtok(NULL, "\n");
 continue;
 }
-
 if (pid == 0)
 {
-/* Child: exec; keep stderr quiet for checker */
-execve(resolved, args, environ);
+execve(path, args, environ);
+/* keep quiet on error for checker expectations */
 _exit(EXIT_FAILURE);
 }
-else
-{
-/* Parent: wait and cleanup */
 waitpid(pid, &status, 0);
 free(args);
-free(resolved);
+free(path);
+
 cmd = strtok(NULL, "\n");
 }
 }
-}
 free(line);
-return (0);
+return 0;
 }
