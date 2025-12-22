@@ -157,7 +157,7 @@ return candidate;
 free(candidate);
 }
 }
-/* also check final segment if last char wasn't ':' (handled in loop) */
+/* done scanning */
 free(copy);
 return NULL;
 }
