@@ -176,7 +176,21 @@ return (NULL);
 }
 
 /**
- * main - Simple shell 0.4 with exit built-in
+ * print_env - Print current environment variables
+ */
+void print_env(void)
+{
+int i;
+
+for (i = 0; environ && environ[i]; i++)
+{
+write(STDOUT_FILENO, environ[i], strlen(environ[i]));
+write(STDOUT_FILENO, "\n", 1);
+}
+}
+
+/**
+ * main - Simple shell 1.0 with exit and env built-ins
  * @argc: Argument count
  * @argv: Argument vector
  *
@@ -232,6 +246,15 @@ if (strcmp(args[0], "exit") == 0)
 free(args);
 free(line);
 exit(status);
+}
+
+/* Built-in: env */
+if (strcmp(args[0], "env") == 0)
+{
+print_env();
+free(args);
+cmd = strtok(NULL, "\n");
+continue;
 }
 
 path = resolve_command(args[0]);
