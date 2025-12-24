@@ -113,98 +113,6 @@ return (out);
 }
 
 /**
- * int_to_str - Convert positive integer to string
- * @n: Integer
- * @buf: Buffer to write into (at least 12 bytes)
- *
- * Return: Pointer to buf containing the number
- */
-static char *int_to_str(int n, char *buf)
-{
-int i = 0, j;
-char tmp[12];
-
-if (n == 0)
-{
-buf[0] = '0';
-buf[1] = '\0';
-return (buf);
-}
-while (n > 0 && i < 11)
-{
-tmp[i++] = (char)('0' + (n % 10));
-n /= 10;
-}
-for (j = 0; j < i; j++)
-buf[j] = tmp[i - j - 1];
-buf[i] = '\0';
-return (buf);
-}
-
-/**
- * write_not_found - Write "prog: line: cmd: not found" to stderr
- * @prog: Program name (argv[0])
- * @line_no: Line number (1-based)
- * @cmd: Command name
- */
-static void write_not_found(const char *prog, int line_no, const char *cmd)
-{
-char num[12];
-char buf[512];
-size_t pos = 0, len;
-
-/* prog */
-if (prog)
-{
-len = strlen(prog);
-if (pos + len < sizeof(buf))
-{
-memcpy(buf + pos, prog, len);
-pos += len;
-}
-}
-/* ": " */
-if (pos + 2 < sizeof(buf))
-{
-buf[pos++] = ':';
-buf[pos++] = ' ';
-}
-/* line number */
-int_to_str(line_no, num);
-len = strlen(num);
-if (pos + len < sizeof(buf))
-{
-memcpy(buf + pos, num, len);
-pos += len;
-}
-/* ": " */
-if (pos + 2 < sizeof(buf))
-{
-buf[pos++] = ':';
-buf[pos++] = ' ';
-}
-/* cmd */
-if (cmd)
-{
-len = strlen(cmd);
-if (pos + len < sizeof(buf))
-{
-memcpy(buf + pos, cmd, len);
-pos += len;
-}
-}
-/* ": not found\n" */
-if (pos + 13 < sizeof(buf))
-{
-memcpy(buf + pos, ": not found\n", 12);
-pos += 12;
-}
-/* write to stderr */
-if (pos > 0)
-write(STDERR_FILENO, buf, pos);
-}
-
-/**
  * resolve_command - Resolve command via PATH or direct path
  * @cmd: Command name
  *
@@ -268,11 +176,11 @@ return (NULL);
 }
 
 /**
- * main - Simple shell 0.3 with PATH support and proper exit status
+ * main - Simple shell 0.4 with exit built-in
  * @argc: Argument count
  * @argv: Argument vector
  *
- * Return: Exit status (last command), 127 if not found
+ * Return: Exit status
  */
 int main(int argc, char **argv)
 {
@@ -283,9 +191,9 @@ char **args;
 char *path;
 pid_t pid;
 int status = 0;
-int line_no = 1;
 
 (void)argc;
+(void)argv;
 
 for (;;)
 {
@@ -306,7 +214,6 @@ cmd = trim_spaces(cmd);
 if (*cmd == '\0')
 {
 cmd = strtok(NULL, "\n");
-line_no++;
 continue;
 }
 
@@ -316,43 +223,42 @@ if (!args || !args[0] || args[0][0] == '\0')
 if (args)
 free(args);
 cmd = strtok(NULL, "\n");
-line_no++;
 continue;
+}
+
+/* Built-in: exit */
+if (strcmp(args[0], "exit") == 0)
+{
+free(args);
+free(line);
+exit(status);
 }
 
 path = resolve_command(args[0]);
 if (!path)
 {
-/* report not found and set status to 127; do not fork */
-write_not_found(argv[0] ? argv[0] : "./hsh", line_no, args[0]);
-status = 127;
 free(args);
 cmd = strtok(NULL, "\n");
-line_no++;
 continue;
 }
 
 pid = fork();
 if (pid == -1)
 {
-/* fork failed; keep quiet, set non-zero status */
 status = 1;
 free(args);
 free(path);
 cmd = strtok(NULL, "\n");
-line_no++;
 continue;
 }
 if (pid == 0)
 {
 execve(path, args, environ);
-/* exec failed in child: exit with 126 (common for "cannot execute") */
 _exit(126);
 }
 if (waitpid(pid, &status, 0) == -1)
 status = 1;
-/* normalize to exit code */
-if (WIFEXITED(status))
+else if (WIFEXITED(status))
 status = WEXITSTATUS(status);
 else
 status = 1;
@@ -361,7 +267,6 @@ free(args);
 free(path);
 
 cmd = strtok(NULL, "\n");
-line_no++;
 }
 }
 free(line);
